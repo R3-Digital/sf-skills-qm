@@ -6,7 +6,7 @@ This directory contains working code examples demonstrating how to programmatica
 
 **NEVER use built-in tools like Read, cat, or any other tool that loads entire JSON files into context!**
 
-These tools inject the complete file (including verbose WSDL segments and all sections) directly into your context, wasting 60-80% of tokens.
+These tools inject the complete file (including sub-types, samples and all sections) directly into your context, wasting 60-80% of tokens.
 
 ## Available Examples
 
@@ -123,10 +123,10 @@ Choose based on your need:
 
 | Your Need | Load These Sections | Skip These |
 |-----------|-------------------|------------|
-| **Field definitions** | `fields` | `wsdl_segment`, `declarative_metadata_sample_definition` |
-| **Understanding purpose** | `description` | `wsdl_segment`, `file_information` |
-| **XML structure examples** | `declarative_metadata_sample_definition` | `wsdl_segment` |
-| **Schema validation** | `wsdl_segment` | (rarely needed) |
+| **Field definitions** | `fields` | `sub_types`, `declarative_metadata_sample_definition` |
+| **Understanding purpose** | `description` | `sub_types`, `file_information` |
+| **XML structure examples** | `declarative_metadata_sample_definition` | `sub_types` |
+| **Allowed values / nested types** | `wsdl_enums.<Type>`, `sub_types.<Type>`, `wsdl_types.<Type>` (by key) | whole maps |
 
 ## Anti-Patterns (What NOT to Do)
 

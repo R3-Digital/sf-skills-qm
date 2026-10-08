@@ -41,7 +41,7 @@ Loading all files affects performance:
 - Load 1-5 specific metadata types relevant to your task
 - Check the `sections` array first to see what's available
 - Use the index table to find related types
-- Skip WSDL segments and sample definitions unless explicitly needed
+- Skip sub-types and sample definitions unless explicitly needed
 - Cache frequently used sections (fields for CustomObject, Flow, Profile)
 
 ❌ **DON'T**:
@@ -50,7 +50,7 @@ Loading all files affects performance:
 - Load every metadata type at once
 - Load files "just in case" you might need them
 - Repeatedly load the same files in a conversation
-- Include WSDL segments unless you need schema validation
+- Load whole `sub_types` / `wsdl_types` / `wsdl_enums` maps (pull single keys)
 - Load declarative_metadata_sample_definition unless examples are required
 
 ### Example: Good vs. Bad
@@ -80,14 +80,14 @@ Approximate token counts for different loading strategies:
 | Single section (fields only) | 50-200 | ✅ **BEST** - Quick field reference |
 | Single section (description) | 20-100 | ✅ Overview/understanding |
 | 2-3 sections from one type | 150-500 | Most common use case |
-| Entire single type (small) | 100-500 | Small types without WSDL |
-| Entire single type (large) | 500-2,000 | ❌ **Wasteful** - includes unused WSDL |
+| Entire single type (small) | 100-500 | Small types |
+| Entire single type (large) | 500-2,000 | ❌ **Wasteful** - includes unused sub-types and samples |
 | 5 related types (entire files) | 2,000-5,000 | ❌ Use section-specific loading instead |
 | 20 types (entire files) | 10,000-15,000 | ❌ Avoid - major waste |
 | 50 types (entire files) | 25,000-35,000 | ❌ Never do this |
 | The full metadata-type corpus | ~75,000 | ❌ Catastrophic waste |
 
-**Note**: Loading only specific sections (fields, description) typically reduces token usage by **60-80%** per file compared to loading entire files with WSDL segments and examples.
+**Note**: Loading only specific sections (fields, description) typically reduces token usage by **60-80%** per file compared to loading entire files with sub-types and examples.
 ## Usage Examples
 
 ### Example 1: Creating a CustomObject (Section-Specific)
@@ -101,7 +101,7 @@ Approximate token counts for different loading strategies:
 4. Generate XML with correct namespace
 5. Include file naming convention: `Student__c.object-meta.xml`
 
-**Token savings**: ~70% (loading only 'fields' + 'declarative_metadata_sample_definition' instead of entire file with WSDL)
+**Token savings**: ~70% (loading only 'fields' + 'declarative_metadata_sample_definition' instead of the entire file)
 
 ### Example 2: Understanding Flow Metadata (Section-Specific)
 
@@ -111,7 +111,7 @@ Approximate token counts for different loading strategies:
 1. Load ONLY the `fields` section from `assets/metadata_api/Flow.json`
 2. List field names, types, and descriptions
 3. Highlight required fields and common patterns
-4. Skip `wsdl_segment`, `description`, and other sections
+4. Skip `sub_types`, `description`, and other sections
 
 **Token savings**: ~80% (fields section is ~200 tokens vs ~1000 for entire file)
 
@@ -125,7 +125,7 @@ Approximate token counts for different loading strategies:
 3. Show structure and required sub-fields
 4. If XML example needed, separately load `declarative_metadata_sample_definition`
 
-**Token savings**: ~75% (avoiding massive WSDL segment in Profile.json)
+**Token savings**: ~75% (avoiding the large sub_types map in Profile.json)
 
 ### Example 4: Working with ApexClass Metadata (Section-Specific)
 
@@ -155,7 +155,7 @@ Approximate token counts for different loading strategies:
 1. Identify the metadata type from file extension
 2. Load the JSON documentation
 3. Review field descriptions to understand purpose
-4. Check WSDL segment for complex type definitions
+4. Check `sub_types.<Type>` (or `wsdl_types.<Type>`) for complex type definitions and `wsdl_enums.<Type>` for allowed values
 5. Cross-reference with your XML file
 
 ### Workflow 3: Modifying Metadata
@@ -188,9 +188,9 @@ Different metadata types have different available sections. Here's what each sec
 
 ### Schema Sections
 
-- **wsdl_segment**: XML schema definition from the Metadata API WSDL
-  - Contains complexType and simpleType definitions
-  - Shows complete structure and type relationships
+- **wsdl_enums**: allowed values of each enumeration (simpleType) from the Metadata API WSDL, keyed by type name
+- **wsdl_types**: compact digest of WSDL complex types not documented in `fields`/`sub_types` (`[]` = repeating, `(required)` = minOccurs not 0)
+  - QM slim copy: replaces the raw `wsdl_segment` XSD text
   - Useful for validation and understanding complex nested structures
 
 ### Example Sections
@@ -365,7 +365,7 @@ This skill documentation is generated from Salesforce Metadata API version 67.0.
 
 This skill is automatically generated from source JSON files. To update:
 
-1. Regenerate source JSON files from latest Salesforce WSDL
+1. Regenerate source JSON files from latest Salesforce WSDL (QM slim copy: then run `tools/slim_metadata_json.py`)
 2. Run the skill generator script
 3. Review changes in generation log
 4. Deploy updated skill
@@ -397,7 +397,7 @@ If you encounter issues or have questions:
 
 1. **Check the Index**: `metadata_index_table.md` (in this `references/` folder) lists all available types
 2. **Review Examples**: See usage examples above for common patterns
-3. **Consult WSDL**: Check `wsdl_segment` in JSON files for schema details
+3. **Consult WSDL digests**: Check `wsdl_types` / `wsdl_enums` in JSON files for nested types and allowed values
 4. **Salesforce Documentation**: Official docs have additional context
 
 ### Reporting Issues

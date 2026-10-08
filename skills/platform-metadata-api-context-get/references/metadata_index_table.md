@@ -10,7 +10,7 @@ The following sections appear in most metadata types:
 - file_information
 - declarative_metadata_sample_definition
 - directory_location
-- wsdl_segment
+- wsdl_enums / wsdl_types (QM slim copy: compact digests replacing the raw `wsdl_segment`; present when the type's WSDL had enumerations or undocumented nested types)
 
 **Note**: The table below shows only *additional* sections beyond these common ones.
 
