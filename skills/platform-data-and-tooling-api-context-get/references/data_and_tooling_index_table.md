@@ -2,7 +2,9 @@
 
 # Data + Tooling API Object Index
 
-1839 Enterprise/Data API sObjects (`assets/enterprise_api/`) and 291 Tooling API records (`assets/tooling_api/`).
+1839 Enterprise/Data API sObjects and 291 Tooling API records documented by Salesforce at API 67.0.
+
+> **QM slim copy:** the per-object JSON files this table indexed were removed. Use this table only as a catalogue of standard object names per API surface; the "Additional Sections" column describes the original Salesforce docs pages and is informational. For field details, run `sf sobject describe` against the target org (see `SKILL.md`).
 
 ## Enterprise / Data API — Common Sections
 

@@ -26,7 +26,7 @@ The Salesforce Metadata API allows you to retrieve, deploy, create, update, or d
 
 - Field definitions and data types
 - Required vs. optional fields
-- WSDL schema definitions
+- Compact WSDL digests: allowed enum values (`wsdl_enums`) and nested types not documented elsewhere (`wsdl_types`)
 - Sample XML structures
 - File naming conventions
 - Directory locations in Salesforce DX projects
@@ -37,14 +37,15 @@ The Salesforce Metadata API allows you to retrieve, deploy, create, update, or d
 
 **ALWAYS consume only the specific sections you need from JSON files, NOT entire files.**
 
-**CRITICAL: For `assets/metadata_api/*.json` files, always use `jq` or programmatic JSON parsing to extract only the specific sections you need.** Do not load these files whole via `Read`, `cat`, `read_file`, or any other tool that injects the complete file — they contain verbose WSDL segments and other sections that waste 60-80% of tokens. (Loading small files like this SKILL.md or the index table with `Read` is fine; the rule applies specifically to the large metadata-type JSON files.)
+**CRITICAL: For `assets/metadata_api/*.json` files, always use `jq` or programmatic JSON parsing to extract only the specific sections you need.** Do not load these files whole via `Read`, `cat`, `read_file`, or any other tool that injects the complete file — they contain long field lists, sub-types and sample XML that waste tokens. (Loading small files like this SKILL.md or the index table with `Read` is fine; the rule applies specifically to the large metadata-type JSON files.)
 
-Each JSON file contains multiple sections (fields, description, wsdl_segment, etc.). Most use cases only require 1-2 sections:
+Each JSON file contains multiple sections (fields, description, sub_types, etc.). Most use cases only require 1-2 sections:
 
 - **For field definitions**: Load only the `fields` section
 - **For understanding purpose**: Load only the `description` section
 - **For XML examples**: Load only the `declarative_metadata_sample_definition` section
-- **Skip by default**: `wsdl_segment` (verbose schema), `file_information`, `directory_location`
+- **For allowed values of an enum-typed field** (e.g. `deleteConstraint` → `DeleteConstraint`): load `wsdl_enums["<TypeName>"]`
+- **Skip by default**: `file_information`, `directory_location`
 
 This reduces token consumption by **60-80% per file**.
 
@@ -66,7 +67,7 @@ To get information about a specific metadata type:
 
 **Avoid:**
 - "Show me the CustomObject metadata type" (too broad - entire file)
-- "Load CustomObject.json" (includes unnecessary WSDL and other sections)
+- "Load CustomObject.json" (includes sub-types, samples and other unneeded sections)
 
 ## JSON File Structure
 
@@ -74,7 +75,7 @@ Each metadata type is stored as a JSON file in `assets/metadata_api/` with the f
 
 ```json
 {
-  "sections": ["title", "description", "fields", "wsdl_segment", ...],
+  "sections": ["title", "description", "fields", "sub_types", "wsdl_types", "wsdl_enums", ...],
   "title": "MetadataTypeName - Metadata API",
   "description": "Plain-text description of the metadata type.",
   "fields": {
@@ -86,7 +87,8 @@ Each metadata type is stored as a JSON file in `assets/metadata_api/` with the f
   },
   "file_information": ".object",
   "directory_location": "objects",
-  "wsdl_segment": "<xsd:complexType>...</xsd:complexType>",
+  "wsdl_enums": {"DeleteConstraint": ["Cascade", "Restrict", "SetNull"]},
+  "wsdl_types": {"ValueSet": {"fields": {"valueSetDefinition": "ValueSetValuesDefinition", "valueSettings": "ValueSettings[]"}}},
   "declarative_metadata_sample_definition": [
     {
       "description": "Example description",
@@ -96,7 +98,7 @@ Each metadata type is stored as a JSON file in `assets/metadata_api/` with the f
 }
 ```
 
-> **Note:** string values (`title`, `description`, `file_information`, `directory_location`, `wsdl_segment`) are stored as **plain text** — no markdown headers (`#`/`##`) or code fences. `file_information` holds just the file suffix (e.g. `.object`, `.ai`) and `directory_location` just the SFDX folder name (e.g. `objects`, `aiApplications`).
+> **Note:** string values (`title`, `description`, `file_information`, `directory_location`) are stored as **plain text** — no markdown headers (`#`/`##`) or code fences. `file_information` holds just the file suffix (e.g. `.object`, `.ai`) and `directory_location` just the SFDX folder name (e.g. `objects`, `aiApplications`).
 
 ### Available Sections
 
@@ -108,7 +110,8 @@ The `sections` array indicates which top-level keys are present in each file. Co
 - `sub_types`: (composite types only) a map of referenced sub-type name → that sub-type's fields, e.g. `Flow` → `sub_types.FlowActionCall`
 - `file_information`: File naming conventions and extensions
 - `directory_location`: Where files are stored in SFDX projects
-- `wsdl_segment`: XML schema definition from the WSDL
+- `wsdl_enums`: allowed values for every enumeration (`xsd:simpleType`) the type's WSDL references, keyed by type name
+- `wsdl_types`: compact digest of complex types from the WSDL that are not documented in `fields`/`sub_types` here or in another type's file. Each entry is `{"extends"?: base, "fields": {name: "Type"}}` where `[]` means repeating and `(required)` means `minOccurs` is not 0. Result-type files (e.g. `AsyncResult`) carry their whole schema here.
 - `declarative_metadata_sample_definition`: Example XML code
 
 Some metadata types have additional sections specific to their functionality. See the [Index Table](references/metadata_index_table.md) for a complete breakdown.
@@ -126,7 +129,7 @@ Some metadata types have additional sections specific to their functionality. Se
 
 **CRITICAL WARNING: DO NOT use the `read_file` tool (or any whole-file reading tool) on these JSON files!**
 
-`read_file` loads the entire file content into your context, defeating the purpose of section-specific consumption. You will waste 60-80% of your token budget loading unnecessary WSDL segments and verbose sections. (Using `Read` on small files such as this SKILL.md or the index table is fine — this rule is only about the large metadata-type JSON files.)
+`read_file` loads the entire file content into your context, defeating the purpose of section-specific consumption. You will waste most of your token budget on sections you don't need. (Using `Read` on small files such as this SKILL.md or the index table is fine — this rule is only about the large metadata-type JSON files.)
 
 **Approach**: Programmatically parse the JSON file and extract ONLY the sections you need using code, not whole-file reading tools.
 
@@ -144,7 +147,7 @@ See [`examples/README.md`](examples/README.md) for complete documentation and us
 1. Read the JSON file
 2. Parse it into a data structure
 3. Extract ONLY the sections you need (e.g., `fields`, `description`)
-4. Ignore verbose sections (`wsdl_segment`, `declarative_metadata_sample_definition`)
+4. Ignore verbose sections (`sub_types`, `declarative_metadata_sample_definition`) unless needed
 
 ### What NOT to Do
 
@@ -173,14 +176,14 @@ read_file assets/metadata_api/*.json  # This loads ~15MB of data!
 
 ### When to Load Specific Sections (STRONGLY RECOMMENDED)
 
-Many metadata types have large WSDL segments or extensive field lists. **Always load only the specific sections you need from each JSON file** rather than consuming the entire file:
+Many metadata types have extensive field lists, sub-types and samples. **Always load only the specific sections you need from each JSON file** rather than consuming the entire file:
 
 1. **First, check available sections** by reading just the `sections` array from the JSON
 2. **Extract only the sections you need** (e.g., `fields` for field definitions, `description` for overview)
-3. **Skip WSDL segments** unless you specifically need schema validation
+3. **Load `wsdl_enums` / `wsdl_types` entries by key** only when you need allowed values or an undocumented nested type
 4. **Skip declarative_metadata_sample_definition** unless you need complete XML examples
 
-This approach can reduce token consumption by **60-80%** per file by excluding verbose WSDL definitions and lengthy examples.
+This approach can reduce token consumption by **60-80%** per file by excluding unneeded sections and lengthy examples.
 
 ## Conceptual Approach to Using This Skill
 
@@ -193,7 +196,7 @@ Ask yourself:
   - Field definitions only? → Load `fields` section
   - Understanding what it does? → Load `description` section
   - XML example? → Load `declarative_metadata_sample_definition` section
-  - Schema validation? → Load `wsdl_segment` section (rarely needed)
+  - Allowed values for an enum-typed field? → Load `wsdl_enums["<TypeName>"]`
 
 ### Step 2: Find the Right Type
 
@@ -218,17 +221,17 @@ Need XML structure example?
 
 Need all three?
   → Load 'fields' + 'description' + 'declarative_metadata_sample_definition'
-  → Still skip 'wsdl_segment', 'file_information', 'directory_location'
+  → Still skip 'file_information', 'directory_location'
   → Savings: ~60-70% vs loading entire file
 
-Need schema validation?
-  → Only then load 'wsdl_segment' (this is verbose)
+Need allowed values or a nested type's structure?
+  → Load 'wsdl_enums["<Type>"]' or 'sub_types.<Type>' / 'wsdl_types.<Type>' by key
 ```
 
 **Request format**:
 - **Single section** (BEST): "Show me only the 'fields' section from ApexClass.json"
 - **Multiple sections**: "Load 'fields' and 'description' from CustomObject.json"
-- **Skip verbose sections**: Never load `wsdl_segment` unless explicitly needed
+- **Load by key**: pull single entries from `sub_types`, `wsdl_types`, `wsdl_enums`, never the whole map
 
 ### Step 4: Apply to Your Code
 
@@ -306,7 +309,7 @@ http://soap.sforce.com/2006/04/metadata
 
 Each metadata type has different field requirements:
 
-- **Schema-required** (`required: true` in the JSON): the WSDL marks the field as required.
+- **Schema-required** (`required: true` in the JSON): the Salesforce docs/WSDL mark the field as required.
 - **Effectively required** (not flagged but practically needed): in many cases the WSDL marks fewer fields as required than the authoring contract actually demands. CustomObject is the canonical example — the JSON marks only `externalDataSource`, `externalName`, `nameField` as `required: true` (the first two are external-object-only quirks), but a normal `__c` CustomObject also needs `label`, `pluralLabel`, `deploymentStatus`, and `sharingModel` to deploy. Always cross-check with the `declarative_metadata_sample_definition` examples.
 - **Conditionally required**: some fields are required only when certain features are enabled.
 - **Optional**: most fields can be omitted if not needed.
@@ -386,8 +389,8 @@ Heuristics that resolve most ambiguity without asking:
 
 Two related patterns to recognize:
 
-1. **Result types** (`AsyncResult`, `SaveResult`, `DeleteResult`, `UpsertResult`, `Error`, `DescribeMetadataResult`, etc.) — `fields` is empty AND `wsdl_segment` is populated. These are SOAP response wrappers; their schema lives entirely in `wsdl_segment`. Consume that section if you need their structure. They are not deployable source files.
-2. **SOAP request headers** (`AllOrNoneHeader`, `SessionHeader`, `CallOptions`, `DebuggingHeader`, `OwnerChangeOptions`, etc.) — `fields` has 1–2 minimal entries, no `wsdl_segment`. These configure SOAP request behavior; they are call-time options, not metadata you author or deploy.
+1. **Result types** (`AsyncResult`, `SaveResult`, `DeleteResult`, `UpsertResult`, `Error`, `DescribeMetadataResult`, etc.) — `fields` is empty AND `wsdl_types` is populated. These are SOAP response wrappers; their schema lives in `wsdl_types` (compact digest of the WSDL). Consume that section if you need their structure. They are not deployable source files.
+2. **SOAP request headers** (`AllOrNoneHeader`, `SessionHeader`, `CallOptions`, `DebuggingHeader`, `OwnerChangeOptions`, etc.) — `fields` has 1–2 minimal entries, no `wsdl_types`. These configure SOAP request behavior; they are call-time options, not metadata you author or deploy.
 
 In both cases, the thin JSON output is correct. Don't try to author a `.AsyncResult-meta.xml` — these types have no source-file form.
 
@@ -405,26 +408,32 @@ In both cases, the thin JSON output is correct. Don't try to author a `.AsyncRes
 **Problem**: Field definition lacks details
 
 **Solutions**:
-- Check `wsdl_segment` for complete schema definition
-- Some fields have complex types defined in WSDL
+- For enum-typed fields, check `wsdl_enums["<TypeName>"]` for allowed values
+- For complex types, follow the sub-type pointer (next section)
 - Cross-reference with Salesforce documentation for enumerations
 
 ### Following Sub-Type Pointers (e.g., `ProfileObjectPermissions[]`)
 
-When the `fields` section gives a complex type name like `ProfileObjectPermissions[]` or `LayoutItem[]` or `ApprovalStep[]`, the sub-fields of that nested type are NOT in the `fields` section — they live in `wsdl_segment` for that complex type. The skill's "skip wsdl_segment by default" rule is for token economy on the simple-field path; for nested types you need to drill in.
+When the `fields` section gives a complex type name like `ProfileObjectPermissions[]` or `LayoutItem[]` or `ApprovalStep[]`, the sub-fields of that nested type are NOT in the `fields` section. Look them up in this order:
 
-**Worked example** — find the sub-fields of `objectPermissions` on Profile:
+1. `sub_types.<Type>` in the same file (with descriptions; covers most nested types)
+2. `wsdl_types.<Type>` in the same file (compact WSDL digest for nested types not documented elsewhere, e.g. `CustomField` → `ValueSet`)
+3. The type's own file, `assets/metadata_api/<Type>.json`, or another type's `sub_types` (`grep -l '"<Type>"' assets/metadata_api/*.json`)
+
+**Worked example**: find the sub-fields of `objectPermissions` on Profile:
 
 ```bash
 # 1. Get the field type name from the fields section
 jq '.fields.objectPermissions' assets/metadata_api/Profile.json
 # → {"type": "ProfileObjectPermissions[]", ...}
 
-# 2. Pull just the matching complexType from wsdl_segment using grep -A
-jq -r '.wsdl_segment' assets/metadata_api/Profile.json   | grep -A 30 'complexType name="ProfileObjectPermissions"'
+# 2. Pull just that sub-type (fall back to wsdl_types if absent)
+jq '.sub_types.ProfileObjectPermissions // .wsdl_types.ProfileObjectPermissions' assets/metadata_api/Profile.json
 ```
 
-The `grep -A N` window keeps token cost ~150 tokens instead of loading the whole `wsdl_segment` (which can be 5K+ tokens on large types). Use this pattern any time `fields` returns a `Foo[]` type and you need Foo's sub-fields.
+For allowed values of an enum-typed field (e.g. `CustomField.deleteConstraint` of type `DeleteConstraint`): `jq '.wsdl_enums.DeleteConstraint' assets/metadata_api/CustomField.json`.
+
+> **QM slim copy:** the raw `wsdl_segment` XSD text was removed from these files (it was about a third of the corpus and duplicated `fields`/`sub_types`). Its enumerations and otherwise-undocumented complex types were kept as `wsdl_enums` and `wsdl_types`. For the full WSDL, download the Metadata WSDL from the org (Setup → API → Generate Metadata WSDL) or retrieve a real component with `sf project retrieve start --metadata <Type>:<Name>` and inspect it.
 
 ### XML Generation Errors
 

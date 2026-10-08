@@ -6,7 +6,7 @@ Access comprehensive documentation for all **604 Salesforce Metadata API types**
 
 - Complete field definitions for every metadata type
 - XML structure requirements and examples
-- WSDL schema definitions
+- Allowed enum values and otherwise-undocumented nested types (compact WSDL digests: `wsdl_enums`, `wsdl_types`)
 - File naming conventions
 - Salesforce DX directory structure guidance
 - Token optimization strategies
@@ -62,6 +62,8 @@ This skill is designed for use with Claude Code. To use it:
 ## Updates
 
 This skill is automatically generated from Salesforce Metadata API WSDL files.
+
+> **QM slim copy:** the raw `wsdl_segment` text was replaced by compact `wsdl_enums` / `wsdl_types` digests to keep the skill small enough for QM (see the repo README). Re-apply `tools/slim_metadata_json.py` after any upstream refresh.
 
 To update to a newer API version:
 1. Contact the skill maintainer
